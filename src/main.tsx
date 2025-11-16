@@ -4,7 +4,6 @@ import './index.css'
 import App from './App'
 import logoTitleUrl from './img/logo_title.png'
 
-// Проставляем фавикон и заголовок вкладки через импорт ассета
 const ensureFavicon = () => {
   const existing = document.querySelector("link[rel='icon']") as HTMLLinkElement | null
   const link = existing ?? document.createElement('link')

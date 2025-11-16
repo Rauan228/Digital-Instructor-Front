@@ -2,7 +2,6 @@
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
 
-/* Глобальные стили в духе ARMETA: тёмная тема, мягкие градиенты, glow */
 :root {
   color-scheme: dark;
 }
@@ -15,10 +14,9 @@ body {
   background: radial-gradient(1000px 600px at 20% 10%, rgba(125, 211, 252, 0.07), transparent 50%),
               radial-gradient(800px 500px at 80% 30%, rgba(168, 85, 247, 0.05), transparent 50%),
               linear-gradient(180deg, #000000 0%, #000000 100%);
-  overflow-x: hidden; /* защита от лишней ширины из-за декоративных элементов */
+  overflow-x: hidden;
 }
 
-/* Якорный отступ под фиксированный хедер */
 section[id] {
   scroll-margin-top: 72px;
 }
@@ -26,7 +24,7 @@ section[id] {
 .glass {
   background: rgba(19, 23, 34, 0.6);
   backdrop-filter: blur(6px);
-  border: 0; /* убираем визуальные границы у стеклянных блоков */
+  border: 0;
   box-shadow: 0 1px 24px rgba(125, 211, 252, 0.08);
 }
 
@@ -34,12 +32,10 @@ section[id] {
   border-radius: 9999px;
 }
 
-/* Дополнительные эффекты под ARMETA */
 .shadow-glow {
   box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
 }
 
-/* Динамичный футер — мерцающие градиенты как у ARMETA */
 .footer-gradient {
   position: absolute;
   left: -10%;
@@ -52,7 +48,7 @@ section[id] {
   filter: blur(40px);
   opacity: 0.85;
   animation: footerFloat 12s ease-in-out infinite alternate;
-  z-index: -2; /* ниже сетки и контента */
+  z-index: -2;
 }
 
 @keyframes footerFloat {
@@ -60,7 +56,6 @@ section[id] {
   100% { transform: translateY(-12px) translateX(12px); }
 }
 
-/* Hero фон: сетка + глоу пятна */
 .hero-grid {
   position: absolute;
   inset: 0;
@@ -87,7 +82,6 @@ section[id] {
   filter: blur(40px);
 }
 
-/* Анимация появления секций */
 @keyframes fadeUpIn {
   0% { opacity: 0; transform: translateY(20px); }
   100% { opacity: 1; transform: translateY(0); }
@@ -96,7 +90,6 @@ section[id] {
   animation: fadeUpIn 600ms ease forwards;
 }
 
-/* Плавные градиентные переходы между блоками */
 .section-fade-bottom,
 .section-fade-bottom-strong {
   position: relative;
@@ -122,11 +115,10 @@ section[id] {
   background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 100%);
 }
 
-/* Сетка стеклянных иконок за футером */
 .footer-icons {
   position: absolute;
   inset: 0;
-  z-index: -1; /* над градиентом, под контентом */
+  z-index: -1;
   pointer-events: none;
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -162,18 +154,15 @@ section[id] {
   100% { transform: translateY(-12px); }
 }
 
-/* Focus overlay animations - оптимизировано для производительности */
 .focus-overlay {
   animation: fadeIn 0.2s ease-out forwards;
   z-index: 50;
-  /* GPU acceleration */
   transform: translateZ(0);
   backface-visibility: hidden;
 }
 
 .focus-box {
   animation: zoomIn 0.3s ease-out forwards;
-  /* GPU acceleration */
   transform: translateZ(0);
   backface-visibility: hidden;
 }
@@ -198,7 +187,6 @@ section[id] {
   }
 }
 
-/* Упрощенная анимация пульсации для лучшей производительности */
 @keyframes pulse-border {
   0%, 100% {
     opacity: 0.8;
@@ -211,7 +199,6 @@ section[id] {
 .animate-pulse-border {
   animation: pulse-border 2s ease-in-out infinite;
   box-shadow: 0 0 40px rgba(125, 211, 252, 0.6), 0 0 20px rgba(125, 211, 252, 0.4);
-  /* GPU acceleration */
   transform: translateZ(0);
   will-change: opacity;
 }

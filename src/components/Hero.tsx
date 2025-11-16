@@ -1,7 +1,6 @@
 export default function Hero() {
   return (
     <section className="pt-24 md:pt-28 pb-28 md:pb-36 relative overflow-hidden section-fade-bottom-strong">
-      {/* Glow grid background */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="hero-grid" />
         <div className="glow-top-left" />

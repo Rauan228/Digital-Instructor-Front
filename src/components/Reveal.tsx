@@ -19,7 +19,7 @@ export default function Reveal({ children, className = '', as = 'div', threshold
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             setVisible(true)
-            observer.disconnect() // показать один раз
+            observer.disconnect()
           }
         })
       },

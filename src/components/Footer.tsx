@@ -1,10 +1,8 @@
 export default function Footer() {
   return (
     <footer className="relative mt-12 pt-16 pb-10 text-center text-subtle text-sm overflow-hidden">
-      {/* Динамичный анимированный фон */}
       <div className="footer-gradient" />
 
-      {/* Сетка стеклянных иконок за футером */}
       <div className="footer-icons">
         {Array.from({ length: 60 }).map((_, i) => (
           <div key={i} className="tile">
@@ -30,7 +28,6 @@ export default function Footer() {
         </p>
 
         <div className="mt-4 flex items-center justify-center gap-5">
-          {/* Social icons */}
           <a aria-label="Twitter" href="#" className="opacity-80 hover:opacity-100 transition">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-white">
               <path d="M22 5.8c-.7.3-1.4.5-2.2.6.8-.5 1.4-1.2 1.7-2.1-.7.4-1.6.8-2.4.9A3.7 3.7 0 0 0 12.6 8c0 .3 0 .6.1.9-3.1-.2-5.8-1.7-7.6-4-.3.6-.5 1.3-.5 2.1 0 1.4.8 2.7 2 3.4-.6 0-1.1-.2-1.6-.4v.1c0 2 1.5 3.6 3.4 4-.4.1-.8.1-1.3.1-.3 0-.6 0-.9-.1a3.8 3.8 0 0 0 3.5 2.6A7.5 7.5 0 0 1 4 18.9c.4.2.9.2 1.4.2 5.2 0 8.1-4.3 8.1-8v-.4c.8-.6 1.5-1.3 2.1-2z" strokeWidth="1"/>

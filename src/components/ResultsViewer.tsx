@@ -1,11 +1,11 @@
 import { useMemo, useState, useEffect, useRef, useCallback, memo } from 'react'
 import type { AnalyzeResponse, PageResult, Detection } from '../types'
+import ImageZoomModal from './ImageZoomModal'
 
 type Props = {
   response: AnalyzeResponse
 }
 
-// Мемоизированный компонент для кнопки страницы
 const PageThumb = memo(({ 
   page, 
   index, 
@@ -41,25 +41,34 @@ PageThumb.displayName = 'PageThumb'
 function ResultsViewer({ response }: Props) {
   const [current, setCurrent] = useState(0)
   const [focusedObject, setFocusedObject] = useState<Detection | null>(null)
+  const [zoomOpen, setZoomOpen] = useState(false)
+  const [zoomLevel, setZoomLevel] = useState(1)
+  const [panPosition, setPanPosition] = useState({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const imageRef = useRef<HTMLImageElement>(null)
+  const zoomImageRef = useRef<HTMLImageElement>(null)
   const pages = response.pages
 
   const currentPage: PageResult | undefined = useMemo(() => pages[current], [pages, current])
+  const visibleObjects = useMemo(() => {
+    return currentPage?.objects.filter(o => o.class.toLowerCase() !== 'signauth') ?? []
+  }, [currentPage])
 
-  // Сброс фокуса при смене страницы
   useEffect(() => {
     setFocusedObject(null)
+    setZoomOpen(false)
+    setZoomLevel(1)
+    setPanPosition({ x: 0, y: 0 })
   }, [current])
 
-  // Оптимизированный обработчик resize с debounce
   useEffect(() => {
     if (!focusedObject) return
 
-    let timeoutId: NodeJS.Timeout
+    let timeoutId: ReturnType<typeof setTimeout>
     const handleResize = () => {
       clearTimeout(timeoutId)
       timeoutId = setTimeout(() => {
-        // Просто принудительно вызываем перерасчет
         setFocusedObject(prev => prev ? { ...prev } : null)
       }, 100)
     }
@@ -83,22 +92,103 @@ function ResultsViewer({ response }: Props) {
 
   const handleObjectClick = useCallback((obj: Detection) => {
     setFocusedObject(prev => prev === obj ? null : obj)
+    setZoomOpen(false)
   }, [])
 
-  // Получить эмодзи для класса объекта
+  const handleZoomWheel = useCallback((e: WheelEvent) => {
+    e.preventDefault()
+    const delta = e.deltaY > 0 ? -0.2 : 0.2
+    setZoomLevel(prev => Math.max(1, Math.min(5, prev + delta)))
+  }, [])
+
+  const handlePanStart = useCallback((clientX: number, clientY: number) => {
+    setIsDragging(true)
+    setDragStart({ x: clientX - panPosition.x, y: clientY - panPosition.y })
+  }, [panPosition])
+
+  const handlePanMove = useCallback((clientX: number, clientY: number) => {
+    if (!isDragging) return
+    setPanPosition({
+      x: clientX - dragStart.x,
+      y: clientY - dragStart.y
+    })
+  }, [isDragging, dragStart])
+
+  const handlePanEnd = useCallback(() => {
+    setIsDragging(false)
+  }, [])
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    handlePanStart(e.clientX, e.clientY)
+  }, [handlePanStart])
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    handlePanMove(e.clientX, e.clientY)
+  }, [handlePanMove])
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const touch1 = e.touches[0]
+      const touch2 = e.touches[1]
+      const distance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      )
+      ;(e.currentTarget as any).dataset.initialDistance = distance
+      ;(e.currentTarget as any).dataset.initialZoom = zoomLevel
+    } else if (e.touches.length === 1) {
+      handlePanStart(e.touches[0].clientX, e.touches[0].clientY)
+    }
+  }, [zoomLevel, handlePanStart])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      e.preventDefault()
+      const touch1 = e.touches[0]
+      const touch2 = e.touches[1]
+      const distance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      )
+      const initialDistance = parseFloat((e.currentTarget as any).dataset.initialDistance || '1')
+      const initialZoom = parseFloat((e.currentTarget as any).dataset.initialZoom || '1')
+      const scale = distance / initialDistance
+      setZoomLevel(Math.max(1, Math.min(5, initialZoom * scale)))
+    } else if (e.touches.length === 1) {
+      e.preventDefault()
+      handlePanMove(e.touches[0].clientX, e.touches[0].clientY)
+    }
+  }, [handlePanMove])
+
+  const handleTouchEnd = useCallback(() => {
+    handlePanEnd()
+  }, [handlePanEnd])
+
+  useEffect(() => {
+    if (!zoomOpen) return
+    const container = zoomImageRef.current?.parentElement
+    if (!container) return
+    
+    const handler = (e: WheelEvent) => handleZoomWheel(e)
+    container.addEventListener('wheel', handler, { passive: false })
+    return () => container.removeEventListener('wheel', handler)
+  }, [zoomOpen, handleZoomWheel])
+
   const getClassEmoji = (className: string): string => {
     const emojiMap: Record<string, string> = {
       'stamp': '🔖',
       'qr': '🔲',
-      'signature': '✍️'
+      'signature': '✍️',
+      'auth': '👤',
+      'signauth': '🟦'
     }
     return emojiMap[className.toLowerCase()] || '📦'
   }
 
-  // Показывать боковую панель только если больше одной страницы
   const showSidebar = pages.length > 1
 
-  // Рассчитываем позицию и размер фокус-бокса (мемоизировано для производительности)
   const focusBoxData = useMemo(() => {
     if (!focusedObject || !currentPage || !imageRef.current) {
       return null
@@ -110,18 +200,15 @@ function ResultsViewer({ response }: Props) {
     
     if (!containerRect) return null
 
-    // Масштаб отображаемого изображения относительно оригинала
     const scaleX = imgRect.width / currentPage.width
     const scaleY = imgRect.height / currentPage.height
 
-    // Координаты bbox в масштабе отображаемого изображения
     const [x, y, w, h] = focusedObject.bbox
     const scaledX = x * scaleX
     const scaledY = y * scaleY
     const scaledW = w * scaleX
     const scaledH = h * scaleY
 
-    // Смещение изображения относительно контейнера (из-за mx-auto)
     const offsetX = imgRect.left - containerRect.left
     const offsetY = imgRect.top - containerRect.top
 
@@ -133,7 +220,6 @@ function ResultsViewer({ response }: Props) {
       top,
       width: scaledW,
       height: scaledH,
-      // Для clip-path вычисляем процентные значения
       clipPath: `polygon(
         0% 0%, 
         0% 100%, 
@@ -151,7 +237,6 @@ function ResultsViewer({ response }: Props) {
 
   return (
     <div className={showSidebar ? "grid md:grid-cols-[220px,1fr] gap-6" : "grid gap-6"}>
-      {/* Список страниц - показываем только если больше одной страницы */}
       {showSidebar && (
         <div className="glass rounded-xl p-3 max-h-[520px] overflow-auto">
           <div className="text-sm font-semibold mb-2">Pages ({pages.length})</div>
@@ -169,7 +254,6 @@ function ResultsViewer({ response }: Props) {
         </div>
       )}
 
-      {/* Превью и объекты */}
       <div className="grid gap-6">
         <div className="glass rounded-xl p-3 relative overflow-hidden">
           {currentPage?.image_base64 ? (
@@ -178,19 +262,18 @@ function ResultsViewer({ response }: Props) {
                 ref={imageRef}
                 src={`data:image/jpeg;base64,${currentPage.image_base64}`}
                 alt={`Page ${currentPage.page_index}`}
-                className="max-h-[520px] w-auto mx-auto block"
+                className="max-h-[520px] w-auto mx-auto block cursor-zoom-in"
                 id="page-preview-image"
                 loading="lazy"
+                onClick={() => setZoomOpen(true)}
               />
               
-              {/* Overlay для фокуса */}
               {focusedObject && currentPage && focusBoxData && (
                 <div 
                   className="absolute inset-0 focus-overlay cursor-pointer"
                   onClick={() => setFocusedObject(null)}
                   style={{ willChange: 'opacity' }}
                 >
-                  {/* Затемнение с вырезом (без блюра внутри bbox) */}
                   <div 
                     className="absolute inset-0 bg-black/80"
                     style={{
@@ -199,7 +282,6 @@ function ResultsViewer({ response }: Props) {
                     }}
                   />
                   
-                  {/* Рамка вокруг объекта */}
                   <div 
                     className="absolute focus-box pointer-events-none"
                     style={{
@@ -215,6 +297,80 @@ function ResultsViewer({ response }: Props) {
                         {focusedObject.class} ({(focusedObject.confidence * 100).toFixed(0)}%)
                       </div>
                     </div>
+                  </div>
+                </div>
+              )}
+              
+              {zoomOpen && (
+                <div 
+                  className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
+                  onMouseUp={handlePanEnd}
+                  onTouchEnd={handleTouchEnd}
+                  style={{ touchAction: 'none' }}
+                >
+                  <div className="absolute top-4 right-4 flex gap-2 z-10">
+                    <button
+                      onClick={() => setZoomLevel(prev => Math.max(1, prev - 0.5))}
+                      className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white font-bold"
+                    >
+                      −
+                    </button>
+                    <div className="px-4 py-2 bg-white/10 rounded-lg text-white font-mono">
+                      {(zoomLevel * 100).toFixed(0)}%
+                    </div>
+                    <button
+                      onClick={() => setZoomLevel(prev => Math.min(5, prev + 0.5))}
+                      className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white font-bold"
+                    >
+                      +
+                    </button>
+                    <button
+                      onClick={() => {
+                        setZoomLevel(1)
+                        setPanPosition({ x: 0, y: 0 })
+                      }}
+                      className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white"
+                    >
+                      Reset
+                    </button>
+                    <button
+                      onClick={() => setZoomOpen(false)}
+                      className="px-4 py-2 bg-red-500/80 hover:bg-red-500 rounded-lg text-white font-bold"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div 
+                    className="relative w-full h-full overflow-hidden flex items-center justify-center"
+                    style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+                  >
+                    <img
+                      ref={zoomImageRef}
+                      src={`data:image/jpeg;base64,${currentPage.image_base64}`}
+                      alt={`Page ${currentPage.page_index} - Zoomed`}
+                      className="select-none"
+                      draggable={false}
+                      style={{
+                        transform: `scale(${zoomLevel}) translate(${panPosition.x / zoomLevel}px, ${panPosition.y / zoomLevel}px)`,
+                        transformOrigin: 'center center',
+                        transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+                        maxHeight: '85vh',
+                        maxWidth: '90vw',
+                        width: 'auto',
+                        height: 'auto',
+                        objectFit: 'contain'
+                      }}
+                      onMouseDown={handleMouseDown}
+                      onMouseMove={handleMouseMove}
+                      onTouchStart={handleTouchStart}
+                      onTouchMove={handleTouchMove}
+                    />
+                  </div>
+
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-lg text-white text-sm">
+                    <span className="hidden md:inline">Колесико мыши - зум | Перетащите - движение</span>
+                    <span className="md:hidden">Pinch - зум | Перетащите - движение</span>
                   </div>
                 </div>
               )}
@@ -237,7 +393,7 @@ function ResultsViewer({ response }: Props) {
           <div className="mt-4">
             <div className="text-base font-semibold mb-3">Objects on the current page</div>
             <div className="mt-2 grid sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {currentPage?.objects.map((o, idx) => {
+              {visibleObjects.map((o, idx) => {
                 const isActive = focusedObject === o
                 return (
                   <button
@@ -261,7 +417,7 @@ function ResultsViewer({ response }: Props) {
                   </button>
                 )
               })}
-              {!currentPage?.objects?.length && (
+              {!visibleObjects.length && (
                 <div className="text-subtle text-base">No detections on page</div>
               )}
             </div>
@@ -272,5 +428,4 @@ function ResultsViewer({ response }: Props) {
   )
 }
 
-// Экспортируем мемоизированную версию
 export default memo(ResultsViewer)

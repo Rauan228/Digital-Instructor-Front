@@ -1,7 +1,7 @@
 export type Detection = {
   class: 'signature' | 'stamp' | 'qr' | string
   confidence: number
-  bbox: [number, number, number, number] // x, y, w, h
+  bbox: [number, number, number, number]
 }
 
 export type PageResult = {
@@ -21,5 +21,4 @@ export type MultiFileAnalyzeResponse = {
   files: FileAnalysisResult[]
 }
 
-// Для обратной совместимости
 export type AnalyzeResponse = FileAnalysisResult

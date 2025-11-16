@@ -36,19 +36,27 @@ export default function UploadSection({ onAnalyzed }: Props) {
     setProgress({ current: 0, total: files.length })
     
     try {
-      // Обрабатываем файлы батчами по 10 штук для предотвращения краша
-      const BATCH_SIZE = 10
+      const BATCH_SIZE = 5
       const allResults: FileAnalysisResult[] = []
       
       for (let i = 0; i < files.length; i += BATCH_SIZE) {
         const batch = files.slice(i, i + BATCH_SIZE)
         setProgress({ current: i, total: files.length })
         
-        const res = await analyzeAnnotatedMultiple(batch)
-        allResults.push(...res.files)
-        
-        // Обновляем результаты после каждого батча
-        onAnalyzed([...allResults])
+        try {
+          const res = await analyzeAnnotatedMultiple(batch)
+          allResults.push(...res.files)
+          
+          onAnalyzed([...allResults])
+          
+          if (i + BATCH_SIZE < files.length) {
+            await new Promise(resolve => setTimeout(resolve, 500))
+          }
+        } catch (batchError: any) {
+          console.error(`Batch ${i / BATCH_SIZE + 1} failed:`, batchError)
+          setError(`Warning: Batch ${i / BATCH_SIZE + 1} failed. Continuing...`)
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
       }
       
       setProgress({ current: files.length, total: files.length })
