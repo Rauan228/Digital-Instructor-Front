@@ -1,6 +1,7 @@
 # ARMETA Digital Inspector — Frontend
 
 Full-featured frontend for the ARMETA Digital Inspector demo: upload PDFs/images, call backend analytics, and interactively review results with export options.
+link to production https://armeta-digital-instructor-hby3m7qvj-rauans-projects-a38e95f3.vercel.app/
 
 ## Tech Stack
 
