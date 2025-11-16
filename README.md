@@ -1,238 +1,125 @@
-# Digital Inspector – Backend
+# ARMETA Digital Inspector — Frontend
 
-FastAPI service that powers the ARMETA Digital Inspector. It accepts PDFs and images, runs object detection (stamps, signatures, authors, signauth, QR codes) via Ultralytics YOLO or Roboflow Hosted Inference, and returns per-page results. Optionally provides annotated previews and writes convenient batch JSONs for downstream processing.
-
----
+Full-featured frontend for the ARMETA Digital Inspector demo: upload PDFs/images, call backend analytics, and interactively review results with export options.
 
 ## Tech Stack
 
-- Python `3.10`
-- FastAPI + Uvicorn
-- Ultralytics YOLO (PyTorch) for local inference
-- OpenCV + NumPy for image handling
-- PyMuPDF (`pymupdf`) for PDF rendering
-- Requests for optional Roboflow Hosted Inference
+- React 18 + TypeScript — UI and typing.
+- Vite 5 — fast dev server and build tooling.
+- Tailwind CSS — utility-first styling.
 
----
+## Features
 
-## Project Layout
+- Upload multiple files (PDF/PNG/JPG) via file picker and drag-and-drop.
+- Batch send to the backend with progress bar and resilience to partial failures.
+- Results viewer:
+  - page list with thumbnails and current page selection;
+  - object highlighting on the image with background dimming;
+  - modal Zoom with pan (mouse/touch), mouse wheel and ±/Reset buttons;
+  - object list of the current page with class, confidence, and bbox.
+- Data export:
+  - `Download JSON` — sanitize JSON by removing `image_base64` (convenient for sharing/storage);
+  - `Export CSV` — export objects of the current page to CSV (openable in Excel);
+  - in multi-file view — combined exports: `selected_annotations_batch.json`, `masked_annotations_batch.json`, and `annotations_batch.json` (selected + masked).
 
-```
-backend/
-├─ app/
-│  ├─ main.py        ← FastAPI app, endpoints and orchestration
-│  ├─ inference.py   ← YOLO / Roboflow inference logic + drawing utils
-│  ├─ pdf_utils.py   ← PDF → image conversion (PyMuPDF)
-│  └─ preprocess.py  ← (reserved for preprocessing helpers)
-├─ requirements.txt
-├─ Dockerfile
-├─ .env.example
-└─ .python-version   ← 3.10
+## Backend Integration
 
-repo-root/
-├─ best.pt           ← stamp detector (required)
-├─ best_qr.pt        ← QR detector (optional)
-├─ sign-auth.pt      ← signatures/auth/signauth detector (preferred)
-└─ best_sign.pt      ← signatures/auth fallback if `sign-auth.pt` absent
-```
+- Backend base URL is set by `VITE_BACKEND_URL` (defaults to `http://localhost:8000`).
+- Main endpoints:
+  - `POST /api/analyze` — analyze one or multiple files;
+  - `POST /api/analyze/annotated` — analyze with additional annotation.
+- Response format is described by types in `src/types.ts`.
 
-Notes:
-- Model weights are expected in the repository root by default. You can override paths via environment variables.
-- The service writes annotation JSONs into `selected_output/` (configurable).
+## Project Structure (Frontend)
 
----
+- `src/App.tsx` — page composition and demo section.
+- `src/api.ts` — backend call functions (`analyze*`).
+- `src/types.ts` — types `Detection`, `PageResult`, `FileAnalysisResult`.
+- `src/components/UploadSection.tsx` — file upload and batch send.
+- `src/components/MultiFileResultsViewer.tsx` — analyzed files list and global exports.
+- `src/components/ResultsViewer.tsx` — page viewer, objects, zoom, JSON/CSV export.
+- Other components — landing layout: Navbar, Hero, Section*, Footer.
+- Styles: `src/index.css`, Tailwind config via dependencies in `package.json` and `postcss`/`tailwindcss`.
 
-## Endpoints
+## Requirements
 
-- `GET /health`
-  - Returns `{ "status": "ok" }`.
+- Node.js ≥ 18 (LTS recommended).
+- npm ≥ 9 (or pnpm/yarn if you prefer — instructions below use npm).
 
-- `POST /api/analyze`
-  - Request: `multipart/form-data` with one or more files under field `files`.
-  - Response: per-file pages with objects only (no previews).
-  - Side effects: writes/updates `selected_output/selected_annotations.json`, `selected_output/masked_annotations.json`, and batch variants.
+## Setup
 
-- `POST /api/analyze/annotated`
-  - Same as `/api/analyze`, but every page also includes `image_base64` of the annotated preview.
+1. Navigate to the frontend folder:
+   - `cd frontend`
+2. Install dependencies:
+   - `npm install`
+3. Create `.env` next to `package.json` and set backend address if it is not `localhost:8000`:
+   - `VITE_BACKEND_URL=http://localhost:8000`
 
-### Request Example (PowerShell)
+## Development
 
-```powershell
-curl -X POST http://localhost:8000/api/analyze \ 
-  -F "files=@d:/ARMETA/images/val/Frame_108.jpg" \ 
-  -F "files=@d:/ARMETA/images/val/Frame_160.jpg"
-```
+- Start the dev server:
+  - `npm run dev`
+- Open in a browser:
+  - `http://localhost:5173/`
 
-### Response Shape
+Tips:
+- If port `5173` is busy, you can choose another: `npm run dev -- --port 5174`.
+- If you see network/response errors, make sure the backend is reachable at `VITE_BACKEND_URL` and allows CORS.
 
-```json
-{
-  "files": [
-    {
-      "file_name": "Frame_108.jpg",
-      "pages": [
-        {
-          "page_index": 0,
-          "width": 1920,
-          "height": 1080,
-          "objects": [
-            { "class": "stamp", "confidence": 0.94, "bbox": [x, y, w, h] },
-            { "class": "signature", "confidence": 0.88, "bbox": [x, y, w, h] },
-            { "class": "auth", "confidence": 0.77, "bbox": [x, y, w, h] },
-            { "class": "signauth", "confidence": 0.65, "bbox": [x, y, w, h] },
-            { "class": "qr", "confidence": 0.92, "bbox": [x, y, w, h] }
-          ]
-          // For /api/analyze/annotated only:
-          // "image_base64": "data:image/jpeg;base64,/9j/..."
-        }
-      ]
-    }
-  ]
-}
-```
+## Build & Preview
 
----
+- Build production bundle:
+  - `npm run build` (artifacts will be in `dist/`).
+- Local preview of the built app:
+  - `npm run preview` → open `http://localhost:5173/`.
 
-## Exports (Server-Side)
+## Usage (quick)
 
-The backend maintains easy-to-consume JSONs in `selected_output/`:
+1. Go to “Demo / Upload & Analyze” (`#demo`).
+2. Add files (PDF/PNG/JPG) by drag-and-drop or `Choose Files` button.
+3. Click `Analyze` — batch analysis starts with progress.
+4. After results arrive:
+   - select a file (if multiple);
+   - select a page;
+   - click the image to open Zoom, use mouse wheel to scale and drag to pan;
+   - click an object card to toggle focus overlay;
+   - export results: `Download JSON` (without `image_base64`) and `Export CSV`.
 
-- `selected_annotations.json` — per-file raw classes (`stamp`, `signature`, `qr`, `auth`, `signauth`).
-- `masked_annotations.json` — same data with classes mapped to canonical labels:
-  - `stamp → label_1`, `signature → label_2`, `qr → label_3`, `auth → label_4`, `signauth → label_5`.
-- Batch files (rewritten on each request with files):
-  - `selected_annotations_batch.json`
-  - `masked_annotations_batch.json`
+## Export Formats
 
----
+### JSON (sanitized)
+- Structure: `{ file_name, pages: [{ page_index, width, height, objects }, ...] }` — without `image_base64`.
+- File name: `<original>-analysis.json`.
 
-## Installation
+### CSV (current page)
+- Columns: `file_name, page, class, confidence, bbox_x, bbox_y, bbox_w, bbox_h, area, page_width, page_height`.
+- `bbox_*` and `area` are rounded to integers; `confidence` up to 4 decimals.
+- CSV reflects “visible” objects on the page (objects of class `signauth` are not included; you can include them if needed).
+- File name: `<original>-page-<N>-objects.csv`.
 
-### Prerequisites
+### Batch exports (multi-file mode)
+- `selected_annotations_batch.json` — merged “raw” annotations of all files.
+- `masked_annotations_batch.json` — same annotations but classes are masked into standard label_*.
+- `annotations_batch.json` — object with `{ selected, masked }`.
 
-- Python `3.10` (see `.python-version`)
-- Recommended: a virtual environment
+## Common Issues
 
-### Setup (Windows PowerShell)
+- No backend connection / CORS:
+  - check `VITE_BACKEND_URL` in `.env` and availability of `/api/analyze`, `/api/analyze/annotated`;
+  - allow CORS on the backend (e.g., for FastAPI/Starlette — `CORSMiddleware`).
+- Timeout when analyzing many files:
+  - `analyzeAnnotatedMultiple` uses ~120s timeout; reduce batch size or file sizes.
+- Vite port conflict:
+  - `npm run dev -- --port <free_port>`.
+- Images/thumbnails not shown:
+  - ensure the backend returns `image_base64` in pages; the frontend displays them correctly but does not include them in JSON export.
 
-```powershell
-cd d:\ARMETA\backend
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
+## Code Principles
 
-### Environment Configuration
-
-Create `.env` in `backend/` (or use system env vars). Common options:
-
-```env
-# CORS for your frontend(s)
-CORS_ORIGINS=http://localhost:5173
-
-# Confidence threshold for detections (default: 0.25)
-DETECT_CONF=0.25
-
-# Optional custom output directory for annotation JSONs
-ANNOTATIONS_OUTPUT_DIR=selected_output
-
-# Explicit model weights (otherwise defaults to repo-root files below)
-STAMP_MODEL_PATH=d:/ARMETA/best.pt
-QR_MODEL_PATH=d:/ARMETA/best_qr.pt
-SIGNATURE_MODEL_PATH=d:/ARMETA/sign-auth.pt
-
-# Roboflow Hosted Inference (optional; overrides local signature YOLO)
-ROBOFLOW_MODEL_ID=signature-krkm0/1
-ROBOFLOW_API_KEY=your_api_key_here
-# Optional custom endpoint (if not provided, built from model id)
-SIGNATURE_ROBOFLOW_ENDPOINT=https://detect.roboflow.com/signature-krkm0/1?api_key=your_api_key_here&format=json
-# Optional tuning
-ROBOFLOW_CONF=0.25
-ROBOFLOW_OVERLAP=30
-ROBOFLOW_FORMAT=json
-```
-
-Notes:
-- If `SIGNATURE_MODEL_PATH` is not set, the service uses `sign-auth.pt` if present, otherwise `best_sign.pt`.
-- If both `ROBOFLOW_MODEL_ID` and `ROBOFLOW_API_KEY` are set, signature detection uses Roboflow instead of local YOLO.
-
-### Run (development)
-
-```powershell
-uvicorn app.main:app --reload --port 8000
-# Open http://localhost:8000/docs for interactive Swagger UI
-```
-
----
-
-## Docker
-
-Build the image (context is `backend/`):
-
-```powershell
-cd d:\ARMETA\backend
-docker build -t digital-inspector-backend .
-```
-
-Run with volume mounts for weights and output directory:
-
-```powershell
-docker run --rm -p 8000:8000 ^
-  -e CORS_ORIGINS=http://localhost:5173 ^
-  -v ${PWD}\..\best.pt:/app/best.pt ^
-  -v ${PWD}\..\best_qr.pt:/app/best_qr.pt ^
-  -v ${PWD}\..\sign-auth.pt:/app/sign-auth.pt ^
-  -v ${PWD}\..\selected_output:/app/selected_output ^
-  digital-inspector-backend
-```
-
-Notes:
-- The Dockerfile copies only `app/` and `requirements.txt`. Mount weights from the repo root or bake them in a custom image.
-
----
-
-## How It Works
-
-- PDF handling: `pdf_utils.py` uses PyMuPDF to render pages into JPEG/PNG and passes them to inference.
-- Inference:
-  - Local YOLO via Ultralytics for `stamp`, `qr`, `signature`, `auth`, `signauth` classes.
-  - Optional Roboflow endpoint for signature detection.
-- `/api/analyze` renders PDFs at ~300 DPI; `/api/analyze/annotated` uses ~200 DPI and creates compressed annotated previews (`image_base64`).
-- Confidence threshold is controlled by `DETECT_CONF`.
-- Exports are accumulated and masked into `selected_output/` JSON files.
-
----
-
-## Troubleshooting
-
-- CORS blocked by browser
-  - Set `CORS_ORIGINS` to include your frontend origin(s) and restart the server.
-
-- PDFs fail to process with "PyMuPDF not installed"
-  - Ensure `pymupdf` is installed (`requirements.txt` already includes it).
-
-- GPU not used / slow inference
-  - Ultralytics/PyTorch will use CPU unless a compatible CUDA build is installed. Install the appropriate `torch` wheel for your GPU, or keep CPU and tune `DETECT_CONF`/DPI.
-
-- Roboflow request timeouts
-  - Check connectivity and your `ROBOFLOW_*` settings. Consider using local YOLO by omitting Roboflow vars.
-
-- `FileNotFoundError` for model weights
-  - Provide paths via env vars or place files in the repo root (`best.pt`, `best_qr.pt`, `sign-auth.pt` or `best_sign.pt`).
-
-- Large inputs or memory errors
-  - Reduce PDF DPI (code-level tweak) or limit page count upstream. Annotated mode already uses a lower DPI.
-
----
-
-## Security & Notes
-
-- This demo API accepts file uploads and runs heavy processing; do not expose it publicly without rate limits and appropriate hardening.
-- Inputs are not stored by default; only aggregated annotations are written to `selected_output/`.
-- The API surface is minimal to support the frontend use-case.
-
----
+- Simple, readable components without complex state logic.
+- Lazy image loading, minimized re-renders (`memo`/`useMemo`).
+- Tailwind-first styling, no custom SCSS builds.
 
 ## License
 
-Internal ARMETA project — see the root repository for licensing information.
+ARMETA Project. All rights reserved.
